@@ -1,0 +1,10 @@
+.env
+chroma_data/
+conversation_memory.db
+ingest_manifest.json
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.pytest_cache/
+uploads/

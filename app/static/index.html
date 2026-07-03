@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Academic Assistant</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <div class="brand-mark">AA</div>
+          <span class="brand-name">Academic Assistant</span>
+        </div>
+        <button id="new-chat-btn" class="btn-new-chat" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New chat
+        </button>
+      </div>
+
+      <nav id="chat-list" class="chat-list" aria-label="Previous chats">
+        <p class="chat-list-empty">No previous chats yet</p>
+      </nav>
+
+      <div class="sidebar-footer">
+        <p class="disclaimer">Answers are generated from official university documents. Verify important deadlines with your campus.</p>
+      </div>
+    </aside>
+
+    <main class="chat-main">
+      <header class="topbar">
+        <button id="sidebar-toggle" class="icon-btn mobile-only" type="button" aria-label="Toggle sidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <h1>Academic Assistant</h1>
+      </header>
+
+      <div id="messages" class="messages">
+        <div class="welcome">
+          <div class="welcome-icon">AA</div>
+          <h2>How can I help you today?</h2>
+          <p>Ask about transfer requirements, application deadlines, and admissions.</p>
+          <div class="suggestions">
+            <button class="suggestion" type="button" data-query="What is the Fall transfer application deadline?">Fall transfer deadline</button>
+            <button class="suggestion" type="button" data-query="What courses do I need to transfer to CSU?">Transfer course requirements</button>
+            <button class="suggestion" type="button" data-query="When does the Spring application period open?">Spring application dates</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <form id="chat-form" class="composer">
+          <textarea
+            id="query-input"
+            rows="1"
+            placeholder="Message Academic Assistant…"
+            required
+          ></textarea>
+          <button type="submit" id="send-btn" class="send-btn" aria-label="Send message">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.6 21 12 3.4 3.4l2.8 7.2L16 12l-9.8 1.4-2.8 7.2z"/></svg>
+          </button>
+        </form>
+        <p class="composer-note">AI assistant for academic advising. Responses cite indexed university documents.</p>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

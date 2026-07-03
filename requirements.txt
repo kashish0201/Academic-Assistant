@@ -1,0 +1,17 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.0
+pydantic>=2.6.0
+openai>=1.14.0
+pypdf>=4.1.0
+python-docx>=1.1.0
+chromadb>=0.4.24
+sentence-transformers>=2.6.0
+langchain-text-splitters>=0.2.0
+duckduckgo-search>=8.1.1
+flashrank>=0.2.9
+
+# Optional: RAG evaluation (app/services/evaluator.py)
+# ragas>=0.1.0
+# datasets>=2.18.0

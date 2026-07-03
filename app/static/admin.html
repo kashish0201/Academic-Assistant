@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Knowledge Base</title>
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+  <div id="login-screen" class="login-screen">
+    <form id="login-form" class="login-card">
+      <h1>Admin access</h1>
+      <p>Manage the document knowledge base. Students cannot upload files from the chat.</p>
+      <label for="admin-key">Admin API key</label>
+      <input type="password" id="admin-key" autocomplete="current-password" required />
+      <button type="submit" class="btn-primary">Sign in</button>
+      <p id="login-error" class="error" hidden></p>
+      <a href="/" class="back-link">← Back to chat</a>
+    </form>
+  </div>
+
+  <div id="admin-app" class="admin-app" hidden>
+    <header class="admin-header">
+      <div>
+        <h1>Knowledge base admin</h1>
+        <p>Upload and index documents for the student assistant.</p>
+      </div>
+      <div class="admin-actions">
+        <a href="/" class="btn-secondary">Open chat</a>
+        <button id="logout-btn" type="button" class="btn-secondary">Sign out</button>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <section class="card">
+        <h2>Upload document</h2>
+        <p class="hint">Supported: .txt, .pdf, .docx</p>
+        <label class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input" accept=".txt,.pdf,.docx" hidden />
+          <span class="upload-icon">↑</span>
+          <span>Drop a file here or click to upload</span>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Ingest new files</h2>
+        <p class="hint">Process only new or updated files in the uploads folder. Unchanged files are skipped.</p>
+        <button id="ingest-btn" type="button" class="btn-primary">Ingest new files</button>
+      </section>
+
+      <section class="card stats">
+        <span>Indexed chunks</span>
+        <strong id="chunk-count">—</strong>
+      </section>
+
+      <section class="card">
+        <h2>Pending files</h2>
+        <ul id="pending-files" class="file-list"><li class="hint">None</li></ul>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/admin.js"></script>
+</body>
+</html>
