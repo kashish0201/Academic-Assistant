@@ -8,7 +8,7 @@ from app.config import (
     AZURE_OPENAI_DEPLOYMENT,
     AZURE_OPENAI_ENDPOINT,
 )
-from app.llm.controller import gather_hybrid_context
+from app.llm.controller import gather_context
 
 GREETINGS = {
     "hello",
@@ -58,67 +58,41 @@ class LLMGenerator:
 
         return "\n\n".join(formatted_chunks)
 
-    def optimize_search_query(self, user_query: str) -> str:
-        response = self.client.chat.completions.create(
-            model=self.deployment,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a search engine optimization assistant. Convert the user's casual "
-                        "question about California university admissions into 3 to 4 strong, "
-                        "space-separated keywords optimized for a search engine. Output ONLY the keywords. "
-                        "Do not include punctuation, markdown, or full sentences. Current year is 2026."
-                    ),
-                },
-                {"role": "user", "content": user_query},
-            ],
-            temperature=0.0,
+    def adaptive_system_instructions(self, final_route: str) -> str:
+        return (
+            "You are an adaptive RAG academic advising assistant for California higher education.\n"
+            f"Retrieval path used: {final_route}\n\n"
+            "RULES:\n"
+            "1. Answer from the provided Context — especially Live Web Search when present.\n"
+            "2. If Live Web Search contains rankings, lists, or snippets about the topic, "
+            "summarize them in your answer. Do NOT refuse when web results exist.\n"
+            "3. Prioritize local PDFs for admissions policy; prioritize web for rankings and comparisons.\n"
+            "4. Cite sources: local files as (Source: filename), web as (Source: url).\n"
+            "5. Only refuse if Context literally says 'No web results found' AND local docs lack the answer.\n"
+            "6. Current year is 2026.\n"
+            "7. If the student asks about deadlines or GPA without naming a university, ask them to clarify."
         )
-        return response.choices[0].message.content.strip() or user_query
 
-    def generated_cited_answers(
+    def prepare_answer_messages(
         self,
         query: str,
+        search_query: str,
         db_results: Dict[str, Any],
         history: List[Dict] | None = None,
-    ) -> Generator[str, None, None]:
+    ) -> List[Dict[str, str]]:
         history = history or []
+        context = gather_context(query, db_results, use_local=True, use_web=True)
+        user_message = f"Context:\n{context}\n\nStudent Question: {query}"
 
-        if is_greeting(query):
-            yield greeting_response()
-            return
-
-        optimized_keywords = self.optimize_search_query(query)
-        hybrid_context = gather_hybrid_context(optimized_keywords, db_results)
-
-        system_instructions = (
-            "You are an official, comprehensive academic advising assistant for higher education in California.\n"
-            "Your domain includes the California State University (CSU) system, the University of California (UC) system, "
-            "and major private institutions across the state.\n\n"
-            "HANDLING CONVERSATION:\n"
-            "- If the student is saying hello, greeting you, or thanking you, respond naturally and warmly. "
-            "Do not use the fallback refusal message for basic pleasantries.\n\n"
-            "CRITICAL RAG RULES:\n"
-            "1. For specific policy, tuition, deadlines, or data questions, use ONLY the provided Context.\n"
-            "2. If the answer to a factual query cannot be found completely within the Context, respond exactly with: "
-            "'I am sorry, but I do not have access to that specific information in my current university database.'\n"
-            "3. For every university fact you mention from the context, cite the source in parentheses next to the sentence "
-            "(e.g. (Source: transfer_requirements.txt) or (Source: admission.universityofcalifornia.edu)).\n"
-            "4. If the student asks about a specific university, use the live web context when available.\n"
-            "5. The current year is 2026. Prioritize active application cycles and upcoming deadlines for 2026-2027.\n\n"
-            "AMBIGUITY & CLARIFICATION RULE:\n"
-            "If the student asks about deadlines, tuition, fees, or GPA requirements but does not specify a university, "
-            "campus, or system, do not guess. Ask them to clarify which institution or system they mean."
-        )
-
-        user_message = f"Context:\n{hybrid_context}\n\nStudent Question: {query}"
-
-        messages: List[Dict[str, str]] = [{"role": "system", "content": system_instructions}]
+        messages: List[Dict[str, str]] = [
+            {"role": "system", "content": self.adaptive_system_instructions("legacy_hybrid")}
+        ]
         for turn in history:
             messages.append({"role": turn["role"], "content": turn["content"]})
         messages.append({"role": "user", "content": user_message})
+        return messages
 
+    def stream_answer(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
         response = self.client.chat.completions.create(
             model=self.deployment,
             messages=messages,

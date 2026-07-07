@@ -36,6 +36,14 @@ function showToast(message, isError = false) {
   }, 3500);
 }
 
+function friendlyError(error) {
+  const message = error?.message || "Something went wrong.";
+  if (message === "Failed to fetch") {
+    return "Could not reach the server. Make sure the app is running (uvicorn app.main:app --reload).";
+  }
+  return message;
+}
+
 async function parseError(response) {
   const data = await response.json().catch(() => ({}));
   const detail = data.detail;
@@ -83,7 +91,7 @@ async function deleteSession(targetSessionId, event) {
     await refreshChatList();
     showToast("Chat deleted");
   } catch (error) {
-    showToast(error.message, true);
+    showToast(friendlyError(error), true);
   }
 }
 
@@ -194,7 +202,7 @@ async function switchToSession(targetSessionId) {
   try {
     await loadSession(targetSessionId);
   } catch (error) {
-    showToast(error.message, true);
+    showToast(friendlyError(error), true);
   }
 }
 
@@ -229,9 +237,29 @@ function createMessageRow(role) {
 
 function showTypingIndicator() {
   clearWelcome();
-  const bubble = createMessageRow("assistant");
+
+  const row = document.createElement("div");
+  row.className = "message-row assistant";
+  row.id = "typing-indicator";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = "AA";
+
+  const content = document.createElement("div");
+  content.className = "message-content";
+
+  const bubble = document.createElement("div");
+  bubble.className = "message-bubble";
   bubble.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
-  bubble.closest(".message-row").id = "typing-indicator";
+
+  content.appendChild(bubble);
+  row.appendChild(avatar);
+  row.appendChild(content);
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  return bubble;
 }
 
 function hideTypingIndicator() {
@@ -253,7 +281,7 @@ async function sendQuery(query) {
   createMessageRow("user").textContent = text;
   queryInput.value = "";
   queryInput.style.height = "auto";
-  showTypingIndicator();
+  const assistantBubble = showTypingIndicator();
 
   try {
     await ensureSession();
@@ -269,8 +297,6 @@ async function sendQuery(query) {
       throw new Error(await parseError(response));
     }
 
-    hideTypingIndicator();
-    const bubble = createMessageRow("assistant");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullText = "";
@@ -279,17 +305,25 @@ async function sendQuery(query) {
       const { done, value } = await reader.read();
       if (done) break;
       fullText += decoder.decode(value, { stream: true });
-      bubble.textContent = fullText;
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      if (fullText.trim()) {
+        assistantBubble.innerHTML = "";
+        assistantBubble.textContent = fullText;
+        document.getElementById("typing-indicator")?.removeAttribute("id");
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    }
+
+    if (!fullText.trim()) {
+      assistantBubble.textContent = "No response received.";
     }
 
     await refreshChatList();
   } catch (error) {
     hideTypingIndicator();
     const bubble = createMessageRow("assistant");
-    bubble.textContent = error.message;
+    bubble.textContent = friendlyError(error);
     bubble.closest(".message-row").classList.add("error");
-    showToast(error.message, true);
+    showToast(friendlyError(error), true);
   } finally {
     setLoading(false);
     queryInput.focus();
@@ -299,12 +333,16 @@ async function sendQuery(query) {
 async function startNewChat() {
   if (isLoading) return;
 
-  await createSession();
-  showWelcome();
-  setActiveSession(sessionId);
-  await refreshChatList();
-  sidebar?.classList.remove("open");
-  queryInput.focus();
+  try {
+    await createSession();
+    showWelcome();
+    setActiveSession(sessionId);
+    await refreshChatList();
+    sidebar?.classList.remove("open");
+    queryInput.focus();
+  } catch (error) {
+    showToast(friendlyError(error), true);
+  }
 }
 
 function bindSuggestions() {
@@ -337,10 +375,12 @@ sidebarToggle?.addEventListener("click", () => {
 });
 
 async function initApp() {
-  await refreshChatList();
+  showWelcome();
 
-  if (sessionId) {
-    try {
+  try {
+    await refreshChatList();
+
+    if (sessionId) {
       const response = await fetch(`/session/${sessionId}/history`);
       if (response.ok) {
         const data = await response.json();
@@ -350,14 +390,14 @@ async function initApp() {
           return;
         }
       }
-    } catch {
-      // fall through to new session
     }
-  }
 
-  await createSession();
-  showWelcome();
-  setActiveSession(sessionId);
+    await createSession();
+    setActiveSession(sessionId);
+  } catch {
+    sessionId = null;
+    localStorage.removeItem(SESSION_KEY);
+  }
 }
 
-initApp().catch((error) => showToast(error.message, true));
+initApp();

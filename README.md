@@ -1,6 +1,6 @@
-# Academic Assistant — Hybrid RAG Platform
+# Academic Assistant — Adaptive RAG Platform
 
-A Retrieval-Augmented Generation (RAG) chatbot for California higher-education admissions advising. It combines a local document knowledge base (ChromaDB) with live `.edu` web search and Azure OpenAI to produce cited, streaming answers.
+A Retrieval-Augmented Generation (RAG) chatbot for California higher-education admissions advising. It uses **Adaptive RAG** to dynamically route each question to the best retrieval strategy — local documents, live web search, or both — before generating cited streaming answers.
 
 **Live UI:** `http://127.0.0.1:8000/`  
 **Admin panel:** `http://127.0.0.1:8000/admin`  
@@ -8,7 +8,7 @@ A Retrieval-Augmented Generation (RAG) chatbot for California higher-education a
 
 ---
 
-## Architecture
+## Architecture (Adaptive RAG)
 
 ```
 User question
@@ -17,17 +17,15 @@ User question
     │
     ├─ Safety filter (Azure OpenAI)
     │
-    ├─ Load chat history (SQLite)
+    ├─ Query router (Azure OpenAI)
+    │     ├─ DIRECT  → no retrieval, conversational reply
+    │     ├─ LOCAL   → ChromaDB only; fallback to web if graded irrelevant
+    │     ├─ WEB     → .edu web search only
+    │     └─ HYBRID  → local + web; web fallback if local fails grading
     │
-    ├─ Condense follow-up query (Azure OpenAI)
+    ├─ Document grader (Azure OpenAI) — filters irrelevant chunks
     │
-    ├─ Embed query (BGE-small-en-v1.5)
-    │
-    ├─ Vector search → top 10 chunks (ChromaDB)
-    │
-    ├─ Re-rank → top 4 chunks (FlashRank)
-    │
-    ├─ Hybrid context = local docs + .edu web search
+    ├─ Vector search + FlashRank re-rank (when LOCAL/HYBRID)
     │
     └─ Stream cited answer (Azure OpenAI, temperature 0.0)
 ```
@@ -53,8 +51,11 @@ rag_application/
 │   ├── config.py            # Environment config
 │   ├── auth.py              # Admin API key guard
 │   ├── llm/
-│   │   ├── generator.py     # LLM prompts, streaming, condensation
-│   │   └── controller.py    # Hybrid context (local + web)
+│   │   ├── adaptive.py      # Adaptive RAG orchestrator
+│   │   ├── router.py        # Query routing (DIRECT/LOCAL/WEB/HYBRID)
+│   │   ├── grader.py        # Document relevance grading
+│   │   ├── generator.py     # LLM prompts & streaming
+│   │   └── controller.py    # Context assembly per route
 │   ├── services/
 │   │   ├── extractor.py     # PDF, DOCX, TXT extraction
 │   │   ├── chunker.py       # Text splitting
@@ -78,7 +79,8 @@ rag_application/
 
 - **Chat UI** — ChatGPT-style interface with saved conversations and delete support
 - **Streaming answers** — Token-by-token response via `StreamingResponse`
-- **Hybrid retrieval** — Local indexed documents + live `.edu` web results
+- **Adaptive RAG routing** — chooses direct, local, web, or hybrid retrieval per question
+- **Document grader** — drops irrelevant chunks; falls back to web when local docs fail
 - **Re-ranking** — Retrieves 10 chunks, re-ranks to top 4 with FlashRank
 - **Conversation memory** — Follow-up questions with query condensation
 - **Admin-only uploads** — Document ingestion protected by `ADMIN_API_KEY`

@@ -1,5 +1,6 @@
 .env
 chroma_data/
+.flashrank_cache/
 conversation_memory.db
 ingest_manifest.json
 __pycache__/
