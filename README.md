@@ -17,15 +17,18 @@ User question
     │
     ├─ Safety filter (Azure OpenAI)
     │
-    ├─ Query router (Azure OpenAI)
-    │     ├─ DIRECT  → no retrieval, conversational reply
-    │     ├─ LOCAL   → ChromaDB only; fallback to web if graded irrelevant
-    │     ├─ WEB     → .edu web search only
-    │     └─ HYBRID  → local + web; web fallback if local fails grading
+    ├─ Query router (Azure OpenAI) — direct / simple / complex
+    │     ├─ direct  → conversational reply (no retrieval)
+    │     ├─ simple  → retrieve → grade → rewrite retry
+    │     └─ complex → decompose → multi-query retrieve → grade
     │
     ├─ Document grader (Azure OpenAI) — filters irrelevant chunks
     │
-    ├─ Vector search + FlashRank re-rank (when LOCAL/HYBRID)
+    ├─ CRAG web fallback (.edu + broad search for rankings) when local KB fails
+    │
+    ├─ Vector search + FlashRank re-rank
+    │
+    ├─ Groundedness check — regenerate if answer not supported by context
     │
     └─ Stream cited answer (Azure OpenAI, temperature 0.0)
 ```
@@ -51,11 +54,10 @@ rag_application/
 │   ├── config.py            # Environment config
 │   ├── auth.py              # Admin API key guard
 │   ├── llm/
-│   │   ├── adaptive.py      # Adaptive RAG orchestrator
-│   │   ├── router.py        # Query routing (DIRECT/LOCAL/WEB/HYBRID)
-│   │   ├── grader.py        # Document relevance grading
-│   │   ├── generator.py     # LLM prompts & streaming
-│   │   └── controller.py    # Context assembly per route
+│   │   ├── adaptive_controller.py  # Adaptive RAG orchestrator
+│   │   ├── prompts.py              # Router, grader, and generation prompts
+│   │   ├── generator.py            # LLM prompts & streaming
+│   │   └── controller.py           # Web search helpers & context assembly
 │   ├── services/
 │   │   ├── extractor.py     # PDF, DOCX, TXT extraction
 │   │   ├── chunker.py       # Text splitting

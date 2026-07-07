@@ -12,6 +12,7 @@ AZURE_OPENAI_ENDPOINT = os.getenv(
     "https://askpandaai.openai.azure.com/",
 )
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "AskPandaAI4o")
+AZURE_SMALL_DEPLOYMENT = os.getenv("AZURE_SMALL_DEPLOYMENT", "")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")

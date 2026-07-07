@@ -20,10 +20,8 @@ from app.services.memory import ConversationMemory
 from app.services.vector_db import VectorDBService
 from app.services.reranker import RerankerService
 from app.services.ingest import ingest_new_uploads, record_indexed_file
-from app.llm.adaptive import AdaptiveRAGPipeline
-from app.llm.controller import needs_broad_web_search
+from app.llm.adaptive_controller import answer as adaptive_answer
 from app.llm.generator import LLMGenerator, greeting_response, is_greeting
-from app.llm.router import RetrievalRoute
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -32,14 +30,11 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 CHUNK_SIZE = 600
 CHUNK_OVERLAP = 100
-RETRIEVAL_K = 10
-FINAL_K = 4
 
 vector_db = VectorDBService()
 embedder = EmbeddingService()
 reranker = RerankerService()
 llm_generator = LLMGenerator()
-adaptive_pipeline = AdaptiveRAGPipeline(generator=llm_generator)
 memory = ConversationMemory()
 
 
@@ -222,12 +217,6 @@ def get_session_history(session_id: str, limit: int | None = None):
     }
 
 
-def _run_retrieval(search_query: str) -> dict:
-    embedded_query = embedder.embed_query(search_query)
-    results = vector_db.similarity_search(embedded_query, RETRIEVAL_K)
-    return reranker.rerank(search_query, results, top_k=FINAL_K)
-
-
 def _next_stream_chunk(stream: iter) -> str | None:
     try:
         return next(stream)
@@ -257,53 +246,18 @@ async def user_query(session_id: str = Form(...), query: str = Form(...)):
 
     async def stream_and_save_wrapper():
         yield ""
-        full_response_text = ""
         try:
             is_safe = await asyncio.to_thread(llm_generator.is_query_safe_and_relevant, query)
             if not is_safe:
                 yield "Query contains unsafe or irrelevant content."
                 return
 
-            history = memory.get_history(session_id, limit=10)
-
-            route = await asyncio.to_thread(adaptive_pipeline.router.route, query, history)
-
-            if route == RetrievalRoute.DIRECT:
-                db_results = adaptive_pipeline._empty_db_results()
-            elif needs_broad_web_search(query):
-                db_results = adaptive_pipeline._empty_db_results()
-            elif route in (RetrievalRoute.LOCAL, RetrievalRoute.HYBRID):
-                search_query = await asyncio.to_thread(
-                    adaptive_pipeline._resolve_search_query, query, history
-                )
-                db_results = await asyncio.to_thread(_run_retrieval, search_query)
-            else:
-                db_results = adaptive_pipeline._empty_db_results()
-
-            plan = await asyncio.to_thread(
-                adaptive_pipeline.plan,
-                query,
-                history,
-                db_results,
-                route,
-            )
-
-            messages = await asyncio.to_thread(
-                adaptive_pipeline.prepare_messages,
-                query,
-                plan,
-            )
-
-            answer_stream = adaptive_pipeline.stream_answer(messages)
+            answer_stream = adaptive_answer(query, session_id)
             while True:
                 chunk = await asyncio.to_thread(_next_stream_chunk, answer_stream)
                 if chunk is None:
                     break
-                full_response_text += chunk
                 yield chunk
-
-            memory.add_turn(session_id=session_id, role="user", content=query)
-            memory.add_turn(session_id=session_id, role="assistant", content=full_response_text)
         except Exception as e:
             yield f"Query failed: {str(e)}"
 
